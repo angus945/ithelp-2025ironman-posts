@@ -7,7 +7,7 @@ RAW_DIR = ROOT / "Raw"
 PUBLISH_DIR = ROOT / "Publish"
 
 # GitHub Raw URL 前綴（用於圖片路徑）
-GITHUB_RAW_PREFIX = "https://raw.githubusercontent.com/angus945/ithelp-2025ironman-posts/refs/heads/main/"
+GITHUB_RAW_PREFIX = "https://raw.githubusercontent.com/angus945/ithelp-2025ironman-posts/refs/heads/main/Publish/"
 
 # 支援的圖片格式
 SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}

@@ -11,6 +11,10 @@ def clean_content(md_content):
     # 移除其他常見的 metadata 格式
     content = re.sub(r'^(Tags?|Category|Author|Created|Updated|Page-?ID):\s*.+\n*', '', content, flags=re.MULTILINE)
 
+    # 移除新增的 date 和 index metadata
+    content = re.sub(r'^date:\s*.+\n*', '', content, flags=re.MULTILINE)
+    content = re.sub(r'^index:\s*.+\n*', '', content, flags=re.MULTILINE)
+
     # 移除多餘的空行（超過兩個連續的空行壓縮為兩個）
     content = re.sub(r'\n\n\n+', '\n\n', content)
 

@@ -9,10 +9,6 @@ day: 3
 # Day3 - 玩家輸入方案（95% AI）
 
 
-date: 2025/09/17
-
-index: 3
-
 輸入系統，化成灰都能認得的需求，每個專案都要做一次的功能，但解決方案各有不同，要用新舊版的 InputSystem？還是用經典的 Input.GetKey 方案？要支援把手嗎？鍵位要怎麼擺放？
 
 ![圖片](https://raw.githubusercontent.com/angus945/ithelp-2025ironman-posts/refs/heads/main/Publish/day-3_2025-09-17/images/image_5.png)
