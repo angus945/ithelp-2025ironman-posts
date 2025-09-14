@@ -19,7 +19,7 @@ HI 我是樂小呈（小呈、Angus），一位南台多樂系（遊戲系）的
 
 先上部分進度，總之玩家有一根棍子，除了打人以外，還可以丟出去插在敵人身上，然後把敵人拿起來當武器用，是款吃毒動作遊戲 (ﾟ∀ﾟ)
 
-![圖片](https://raw.githubusercontent.com/angus945/ithelp-2025ironman-posts/refs/heads/main/day-1_2025-09-15/images/image_1.gif)
+![圖片](https://raw.githubusercontent.com/angus945/ithelp-2025ironman-posts/refs/heads/main/Publish/day-1_2025-09-15/images/image_1.gif)
 
 啊這次文章活動的重點在程式，所以遊戲設計部分就先不過多解釋 :P 
 
