@@ -29,56 +29,238 @@ def process_image_paths(content, image_mapping=None, post_slug=None):
         return content
 
     from .config import GITHUB_RAW_PREFIX
+    import urllib.parse
+    import os
+
+    def find_best_match(target_name, image_mapping):
+        """找到最佳匹配的圖片檔案"""
+        print(f"\n=== 尋找圖片匹配: '{target_name}' ===")
+
+        # 解碼目標檔名
+        decoded_target = urllib.parse.unquote(target_name)
+        print(f"解碼後目標: '{decoded_target}'")
+
+        # 提取檔案擴展名
+        target_ext = os.path.splitext(decoded_target)[1].lower()
+        print(f"目標擴展名: '{target_ext}'")
+
+        # 1. 完全匹配
+        for orig_name, new_name in image_mapping.items():
+            if orig_name == target_name or orig_name == decoded_target:
+                print(f"[MATCH] 完全匹配: {orig_name} -> {new_name}")
+                return new_name
+
+        # 2. 解碼後匹配
+        for orig_name, new_name in image_mapping.items():
+            decoded_orig = urllib.parse.unquote(orig_name)
+            if decoded_orig == decoded_target:
+                print(f"[MATCH] 解碼匹配: {orig_name} -> {new_name}")
+                return new_name
+
+        # 3. 檔名（不含路徑）匹配
+        target_basename = os.path.basename(decoded_target)
+        for orig_name, new_name in image_mapping.items():
+            orig_basename = os.path.basename(urllib.parse.unquote(orig_name))
+            if orig_basename == target_basename:
+                print(f"[MATCH] 檔名匹配: {orig_basename} -> {new_name}")
+                return new_name
+
+        # 4. 擴展名匹配（針對重複檔名如 圖片.png, 圖片 1.png）
+        if target_ext:
+            target_base = os.path.splitext(target_basename)[0]
+            for orig_name, new_name in image_mapping.items():
+                orig_decoded = urllib.parse.unquote(orig_name)
+                orig_basename = os.path.basename(orig_decoded)
+                orig_base = os.path.splitext(orig_basename)[0]
+                orig_ext = os.path.splitext(orig_basename)[1].lower()
+
+                # 檢查是否是同一系列的檔案（如 圖片.png, 圖片 1.png）
+                if (orig_ext == target_ext and
+                    (orig_base == target_base or
+                     orig_base.startswith(target_base + ' ') or
+                     target_base.startswith(orig_base + ' '))):
+                    print(f"[MATCH] 系列檔案匹配: {orig_basename} -> {new_name}")
+                    return new_name
+
+        # 5. 部分匹配（處理截斷的路徑）
+        for orig_name, new_name in image_mapping.items():
+            orig_decoded = urllib.parse.unquote(orig_name)
+            # 如果原始檔名包含目標檔名，或反之
+            if (len(decoded_target) > 10 and decoded_target in orig_decoded) or \
+               (len(orig_decoded) > 10 and orig_decoded in decoded_target):
+                print(f"[MATCH] 部分匹配: {orig_name} -> {new_name}")
+                return new_name
+
+        # 6. 檔案大小或順序推測（最後手段）
+        if target_ext:
+            matching_exts = [(orig_name, new_name) for orig_name, new_name in image_mapping.items()
+                           if os.path.splitext(urllib.parse.unquote(orig_name))[1].lower() == target_ext]
+            if len(matching_exts) == 1:
+                print(f"[MATCH] 唯一擴展名匹配: {matching_exts[0][0]} -> {matching_exts[0][1]}")
+                return matching_exts[0][1]
+
+        print(f"[NO MATCH] 無法找到匹配")
+        return None
 
     def replace_image_path(match):
-        # 提取圖片路徑
-        img_path = match.group(1)
+        # 提取圖片路徑和可能的圖片描述
+        img_desc = match.group(1) if match.group(1) else "圖片"
+        img_path = match.group(2)
 
-        # 解碼整個路徑後再提取檔名
-        import urllib.parse
+        print(f"\n--- 處理圖片: {img_desc} ---")
+        print(f"原始路徑: {img_path}")
+
+        # 解碼路徑
         decoded_path = urllib.parse.unquote(img_path)
-        # 手動提取檔名，避免 Path.name 在長路徑時的問題
+        print(f"解碼路徑: {decoded_path}")
+
+        # 提取檔名
         original_name = decoded_path.split('/')[-1]
+        print(f"提取檔名: {original_name}")
 
-        # 嘗試在 image_mapping 中找到對應
-        found_mapping = None
-
-        for orig_name, new_name in image_mapping.items():
-            # 嘗試完全匹配
-            if orig_name == original_name:
-                found_mapping = new_name
-                print(f"圖片匹配成功: {orig_name} -> {new_name}")
-                break
-            # 嘗試解碼後的原始檔名匹配
-            elif urllib.parse.unquote(orig_name) == original_name:
-                found_mapping = new_name
-                print(f"圖片匹配成功（解碼）: {orig_name} -> {new_name}")
-                break
-            # 嘗試部分匹配（當原始路徑被截斷時）
-            elif orig_name.startswith(original_name) and len(original_name) > 20:
-                found_mapping = new_name
-                print(f"圖片部分匹配成功: {orig_name} -> {new_name}")
-                break
+        # 尋找最佳匹配
+        found_mapping = find_best_match(original_name, image_mapping)
 
         if found_mapping:
             # 使用 GitHub Raw URL
             github_url = f"{GITHUB_RAW_PREFIX}{post_slug}/images/{found_mapping}"
-            return f"![圖片]({github_url})"
+            print(f"[SUCCESS] 轉換為: {github_url}")
+            return f"![{img_desc}]({github_url})"
         else:
-            # 如果找不到對應，顯示詳細資訊並保持原始路徑
-            print(f"警告：找不到圖片 '{original_name}' 的對應關係")
-            print(f"解碼前路徑: {img_path}")
-            print(f"解碼後路徑: {decoded_path}")
-            print(f"可用的圖片對應: {list(image_mapping.keys())}")
-            return match.group(0)
+            # 如果找不到對應，顯示詳細資訊
+            print(f"[WARNING] 找不到圖片 '{original_name}' 的對應關係")
+            print(f"可用的圖片對應:")
+            for i, (orig, new) in enumerate(image_mapping.items(), 1):
+                print(f"  {i}. {orig} -> {new}")
 
-    # 替換所有圖片標記，特別處理截斷的路徑
-    # 先處理正常的圖片標記
-    processed_content = re.sub(r'!\[[^\]]*\]\(([^)]*)\)', replace_image_path, content)
+            # 保持原始格式但使用 GitHub URL 嘗試
+            github_url = f"{GITHUB_RAW_PREFIX}{post_slug}/images/unknown_{original_name}"
+            print(f"[FALLBACK] 使用備用路徑: {github_url}")
+            return f"![{img_desc}]({github_url})"
 
-    # 清理可能剩餘的截斷文字（在替換圖片後可能出現的額外文字）
-    # 這會移除類似 "___DX11__2025-09-04_10-45-26_0.gif)" 的殘留文字
-    processed_content = re.sub(r'[_-]+[A-Z0-9_-]*\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d+\.gif\)', '', processed_content)
+    # 處理正常的圖片標記 ![描述](路徑)
+    print(f"\n=== 開始處理圖片路徑轉換 ===")
+    print(f"圖片對應表: {image_mapping}")
+
+    # 手動解析圖片標記，正確處理嵌套括號
+    import re
+
+    def find_image_links(content):
+        """手動解析圖片連結，正確處理括號"""
+        results = []
+        i = 0
+        while i < len(content):
+            # 尋找 ![
+            if content[i:i+2] == '![':
+                # 找到描述的結束
+                desc_start = i + 2
+                desc_end = content.find('](', desc_start)
+                if desc_end == -1:
+                    i += 1
+                    continue
+
+                description = content[desc_start:desc_end]
+
+                # 找到路徑的開始
+                path_start = desc_end + 2
+
+                # 手動找到匹配的結束括號
+                paren_count = 1
+                path_end = path_start
+                while path_end < len(content) and paren_count > 0:
+                    if content[path_end] == '(':
+                        paren_count += 1
+                    elif content[path_end] == ')':
+                        paren_count -= 1
+                    if paren_count > 0:
+                        path_end += 1
+
+                if paren_count == 0:
+                    path = content[path_start:path_end]
+                    results.append((description, path))
+                    i = path_end + 1
+                else:
+                    i += 1
+            else:
+                i += 1
+        return results
+
+    image_matches = find_image_links(content)
+    print(f"找到 {len(image_matches)} 個圖片標記:")
+    for i, (desc, path) in enumerate(image_matches, 1):
+        print(f"  {i}. 描述: '{desc}', 路徑: '{path}'")
+
+    # 使用手動解析進行替換
+    def safer_replace(content):
+        """安全地替換圖片路徑"""
+        result = content
+        # 從後往前替換，避免位置偏移
+        matches_with_pos = []
+
+        i = 0
+        while i < len(result):
+            if result[i:i+2] == '![':
+                # 找到描述的結束
+                desc_start = i + 2
+                desc_end = result.find('](', desc_start)
+                if desc_end == -1:
+                    i += 1
+                    continue
+
+                description = result[desc_start:desc_end]
+
+                # 找到路徑的開始
+                path_start = desc_end + 2
+
+                # 手動找到匹配的結束括號
+                paren_count = 1
+                path_end = path_start
+                while path_end < len(result) and paren_count > 0:
+                    if result[path_end] == '(':
+                        paren_count += 1
+                    elif result[path_end] == ')':
+                        paren_count -= 1
+                    if paren_count > 0:
+                        path_end += 1
+
+                if paren_count == 0:
+                    path = result[path_start:path_end]
+                    matches_with_pos.append((i, path_end + 1, description, path))
+                    i = path_end + 1
+                else:
+                    i += 1
+            else:
+                i += 1
+
+        # 從後往前替換
+        for start, end, desc, path in reversed(matches_with_pos):
+            # 創建一個模擬的 match 物件
+            class MockMatch:
+                def __init__(self, desc, path):
+                    self._groups = ['', desc, path]
+                def group(self, n):
+                    return self._groups[n]
+
+            mock_match = MockMatch(desc, path)
+            new_link = replace_image_path(mock_match)
+            result = result[:start] + new_link + result[end:]
+
+        return result
+
+    processed_content = safer_replace(content)
+
+    # 處理可能的截斷路徑殘留
+    # 清理截斷的檔名片段
+    truncated_patterns = [
+        r'[_-]+[A-Z0-9_-]*\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d+\.(gif|png|jpg|jpeg)\)',
+        r'\w+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d+\.(gif|png|jpg|jpeg)$'
+    ]
+
+    for pattern in truncated_patterns:
+        cleaned = re.sub(pattern, '', processed_content)
+        if cleaned != processed_content:
+            print(f"清理截斷路徑: {pattern}")
+            processed_content = cleaned
 
     return processed_content
 

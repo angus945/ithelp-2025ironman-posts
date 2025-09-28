@@ -110,14 +110,33 @@ def copy_images_to_publish(image_folder, target_folder):
     target_folder.mkdir(parents=True, exist_ok=True)
     image_mapping = {}
 
+    print(f"\n=== 開始複製圖片到發布資料夾 ===")
+    print(f"來源資料夾: {image_folder}")
+    print(f"目標資料夾: {target_folder}")
+
     # 收集所有圖片檔案並排序
     image_files = []
     for img_file in image_folder.iterdir():
         if img_file.is_file() and img_file.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
             image_files.append(img_file)
+            print(f"發現圖片: {img_file.name} (大小: {img_file.stat().st_size} bytes)")
 
-    # 按檔名排序確保一致性
-    image_files.sort(key=lambda x: x.name)
+    # 按檔名排序確保一致性（先按檔名主體，再按數字後綴）
+    def sort_key(file_path):
+        name = file_path.stem
+        # 處理類似 "圖片 1", "圖片 2" 的排序
+        import re
+        match = re.match(r'^(.+?)(\s+(\d+))?$', name)
+        if match:
+            base_name = match.group(1)
+            number = int(match.group(3)) if match.group(3) else 0
+            return (base_name, number)
+        return (name, 0)
+
+    image_files.sort(key=sort_key)
+    print(f"排序後的圖片順序:")
+    for i, img_file in enumerate(image_files, 1):
+        print(f"  {i}. {img_file.name}")
 
     # 使用 image_{index} 命名格式
     for index, img_file in enumerate(image_files, 1):
@@ -126,19 +145,56 @@ def copy_images_to_publish(image_folder, target_folder):
         new_name = f"image_{index}{ext}"
         target_path = target_folder / new_name
 
+        print(f"\n--- 處理圖片 {index}/{len(image_files)} ---")
+        print(f"原始檔名: {img_file.name}")
+        print(f"新檔名: {new_name}")
+
         # 複製並可能壓縮圖片
         try:
             if img_file.suffix.lower() in {'.jpg', '.jpeg', '.png'}:
+                print(f"壓縮圖片: {img_file.name}")
                 compress_image(img_file, target_path)
             else:
+                print(f"直接複製: {img_file.name}")
                 shutil.copy2(img_file, target_path)
 
-            # 建立檔名對應關係
-            image_mapping[img_file.name] = new_name
-            print(f"複製圖片: {img_file.name} -> {new_name}")
+            # 建立多種檔名對應關係，包括可能的變體
+            original_name = img_file.name
+
+            # 1. 完整檔名對應
+            image_mapping[original_name] = new_name
+
+            # 2. URL 編碼版本對應
+            import urllib.parse
+            encoded_name = urllib.parse.quote(original_name)
+            if encoded_name != original_name:
+                image_mapping[encoded_name] = new_name
+
+            # 3. 部分編碼版本（常見於 Notion 匯出）
+            partial_encoded = original_name.replace(' ', '%20')
+            if partial_encoded != original_name:
+                image_mapping[partial_encoded] = new_name
+
+            # 4. 檔名主體對應（不含副檔名）
+            stem_name = img_file.stem
+            image_mapping[stem_name] = new_name
+
+            print(f"[OK] 建立對應關係:")
+            print(f"  - {original_name} -> {new_name}")
+            if encoded_name != original_name:
+                print(f"  - {encoded_name} -> {new_name}")
+            if partial_encoded != original_name:
+                print(f"  - {partial_encoded} -> {new_name}")
+            print(f"  - {stem_name} -> {new_name}")
 
         except Exception as e:
-            print(f"複製圖片失敗 {img_file}: {e}")
+            print(f"[ERROR] 複製圖片失敗 {img_file}: {e}")
 
-    print(f"共複製 {len(image_mapping)} 個圖片檔案")
+    print(f"\n=== 圖片複製完成 ===")
+    print(f"共複製 {len(image_files)} 個圖片檔案")
+    print(f"建立 {len(image_mapping)} 個檔名對應關係")
+    print(f"完整對應表:")
+    for orig, new in image_mapping.items():
+        print(f"  {orig} -> {new}")
+
     return image_mapping
