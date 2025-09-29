@@ -10,13 +10,13 @@ def extract_metadata_from_filename(md_path):
     # 移除檔名末尾的 hash 後綴（32位十六進制）
     clean_filename = re.sub(r'\s[0-9a-f]{32}$', '', filename)
 
-    # 解析 Day 格式：Day1 - 標題 或 DAY1 - 標題
+    # 解析 Day 格式：Day1 - 標題、Day 1 - 標題 或 DAY1 - 標題
     # 也處理 Windows 短檔名格式 (如 DAY5-~1, DAY15~1)
-    day_match = re.match(r'^[Dd][Aa][Yy](\d+)\s*-\s*(.+)', clean_filename)
+    day_match = re.match(r'^[Dd][Aa][Yy]\s*(\d+)\s*-\s*(.+)', clean_filename)
 
     # 如果沒有匹配到有連字號的格式，嘗試沒有連字號的格式（如 DAY15~1）
     if not day_match:
-        day_match = re.match(r'^[Dd][Aa][Yy](\d+)(.+)', clean_filename)
+        day_match = re.match(r'^[Dd][Aa][Yy]\s*(\d+)(.+)', clean_filename)
 
     # 如果匹配到但標題是 Windows 短檔名格式 (~1, ~2 等)，從檔案內容讀取真實標題
     if day_match and re.match(r'^~\d+$', day_match.group(2).strip()):
